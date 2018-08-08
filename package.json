@@ -1,0 +1,27 @@
+{
+  "name": "crawl-neko",
+  "version": "1.0.0",
+  "description": "A lightweight crawler framework with your custom focus",
+  "main": "src/index.js",
+  "scripts": {
+    "test": "node test/index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/YKilin/crawl-neko.git"
+  },
+  "keywords": [
+    "crawl",
+    "crawler"
+  ],
+  "author": "Jindai Kirin",
+  "license": "GPL-3.0",
+  "bugs": {
+    "url": "https://github.com/YKilin/crawl-neko/issues"
+  },
+  "homepage": "https://github.com/YKilin/crawl-neko#readme",
+  "dependencies": {
+    "axios": "^0.18.0",
+    "cheerio": "^1.0.0-rc.2"
+  }
+}
