@@ -2,7 +2,7 @@
  * @Author: Jindai Kirin 
  * @Date: 2018-08-08 08:58:29 
  * @Last Modified by: Jindai Kirin
- * @Last Modified time: 2018-08-08 09:18:41
+ * @Last Modified time: 2018-08-09 09:15:26
  */
 
 const CrawlNeko = require('..');
@@ -52,11 +52,10 @@ detail.on('final', (result, customArgu) => {
 // Set 'detail' as the next crawl of 'catalog'
 catalog.next(detail);
 
-catalog.addRequestTargets('https://nhentai.net/language/chinese/');
-
 let myArgu = {
 	tip1: "This is a custom argument. If you do not fill in the argument, we will give an empty object '{}'."
-}
-catalog.start(myArgu).then(() => {
+};
+
+catalog.start('https://nhentai.net/language/chinese/', myArgu).then(() => {
 	console.log("\n" + JSON.stringify(myArgu));
 });

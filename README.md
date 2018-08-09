@@ -58,14 +58,6 @@ npm i crawl-neko
 
 函数`func`的第一个参数用于接收函数队列中上一函数的返回值；第二个参数为自定义参数，通常为一个对象，你可以向里面存放任意你想放的东西，并且这个自定义参数会被全程传递（相当于在函数内可使用的全局变量）
 
-### addRequestTargets(targets)
-向一个爬虫实例添加爬取目标(URL)，可以是`string`或者`Array<string>`
-
-当然，如果你自定义了`request`事件的函数，则不必再限定为`string`，但若要传递多个目标仍需要使用`Array`
-
-### setRequestTargets(targets)
-基本作用同上，只不过相当于先清除原先添加的再去添加
-
 ### setCheerioParameter(parameter)
 当未设定`request`事件的响应函数时，默认会使用`axios`进行请求，并且如果取得的内容为 HTML，则会自动使用`cheerio`进行解析
 
@@ -83,8 +75,13 @@ this.cheerioParameter = {
 
 该继承包括`request`事件函数队列以及`cheerio`参数
 
-### async start(customArgu = {})
-开始爬行，参数为自定义参数
+### async start(requestTargets, customArgu = {})
+开始爬行
+
+`requestTargets`为爬取目标(URL)，可以是`string`或者`Array<string>`  
+当然，如果你自定义了`request`事件的函数，则不必再限定为`string`，但若要传递多个目标仍需要使用`Array`
+
+第二个参数为自定义参数
 
 ## 一个例子
 在`test/index.js`，你可以直接执行`npm test`来运行查看效果
@@ -137,12 +134,11 @@ detail.on('final', (result, customArgu) => {
 // Set 'detail' as the next crawl of 'catalog'
 catalog.next(detail);
 
-catalog.addRequestTargets('https://nhentai.net/language/chinese/');
-
 let myArgu = {
 	tip1: "This is a custom argument. If you do not fill in the argument, we will give an empty object '{}'."
-}
-catalog.start(myArgu).then(() => {
+};
+
+catalog.start('https://nhentai.net/language/chinese/', myArgu).then(() => {
 	console.log("\n" + JSON.stringify(myArgu));
 });
 ```

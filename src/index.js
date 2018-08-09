@@ -2,7 +2,7 @@
  * @Author: Jindai Kirin 
  * @Date: 2018-08-06 15:00:19 
  * @Last Modified by: Jindai Kirin
- * @Last Modified time: 2018-08-08 14:08:41
+ * @Last Modified time: 2018-08-09 09:12:39
  */
 
 const Cheerio = require('cheerio');
@@ -27,8 +27,6 @@ class CrawlNeko {
 		this.nextNeko = null;
 		//参数传递
 		this.nextArgu = null;
-		//请求URL
-		this.requestTargets = [];
 		//cheerio参数
 		this.cheerioParameter = {
 			decodeEntities: false
@@ -47,27 +45,6 @@ class CrawlNeko {
 	static isCrawlNeko(obj) {
 		if (obj.class && obj.class == "CrawlNeko") return true;
 		return false;
-	}
-
-	/**
-	 * Add request target(s)
-	 *
-	 * @param {*} targets Can be singal string or an array of string
-	 * @memberof CrawlNeko
-	 */
-	addRequestTargets(targets) {
-		this.requestTargets = this.requestTargets.concat(targets)
-	}
-
-	/**
-	 * Set request target(s)
-	 *
-	 * @param {*} targets Can be singal string or an array of string
-	 * @memberof CrawlNeko
-	 */
-	setRequestTargets(targets) {
-		this.requestTargets = [];
-		this.addRequestTargets(targets);
 	}
 
 	/**
@@ -115,56 +92,52 @@ class CrawlNeko {
 	/**
 	 * Start crawling
 	 *
+	 * @param {*} requestTargets Request targets
 	 * @param {*} [customArgu={}] Custom argument
 	 * @memberof CrawlNeko
 	 */
-	async start(customArgu = {}) {
-		if (this.requestTargets.length === 0) throw new Error("No URL can be handle");
+	async start(requestTargets, customArgu = {}) {
+		if (!requestTargets) throw new Error("No targets can be handle");
 
-		for (let argu of this.requestTargets) {
-			//request事件，如没指定则默认使用axios
-			if (this.eventQueue.request.isEmpty()) {
-				await Axios.get(argu).then(response => {
-					let data = response.data;
-					//如果返回内容为html则使用cheerio
-					argu = (typeof (data) == "string") ? Cheerio.load(data, this.cheerioParameter) : data;
-				}).catch(e => {
-					console.error(e);
-					this.eventQueue.error.run(e, customArgu);
-				});
-			} else {
-				await this.eventQueue.request.run(argu, customArgu).then(ret => {
+		try {
+			for (let argu of (Array.isArray(requestTargets) ? requestTargets : [requestTargets])) {
+				//request事件，如没指定则默认使用axios
+				if (this.eventQueue.request.isEmpty()) {
+					await Axios.get(argu).then(response => {
+						let data = response.data;
+						//如果返回内容为html则使用cheerio
+						argu = (typeof (data) == "string") ? Cheerio.load(data, this.cheerioParameter) : data;
+					});
+				} else {
+					await this.eventQueue.request.run(argu, customArgu).then(ret => {
+						argu = ret;
+					});
+				}
+
+				//data事件
+				await this.eventQueue.data.run(argu, customArgu).then(ret => {
 					argu = ret;
-				}).catch(e => {
-					console.error(e);
-					this.eventQueue.error.run(e, customArgu);
+					//下一步处理的参数
+					this.nextArgu = ret;
 				});
-			}
 
-			//data事件
-			await this.eventQueue.data.run(argu, customArgu).then(ret => {
-				argu = ret;
-				//下一步处理的参数
-				this.nextArgu = ret;
-			}).catch(e => {
-				console.error(e);
-				this.eventQueue.error.run(e, customArgu);
-			});
-
-			//final事件
-			if (!Array.isArray(argu)) argu = [argu];
-			for (let a of argu) {
-				await this.eventQueue.final.run(a, customArgu).catch(e => {
-					console.error(e);
-					this.eventQueue.error.run(e, customArgu);
-				});
+				//final事件
+				if (!Array.isArray(argu)) argu = [argu];
+				for (let a of argu) {
+					await this.eventQueue.final.run(a, customArgu).catch(e => {
+						console.error(e);
+						this.eventQueue.error.run(e, customArgu);
+					});
+				}
 			}
+		} catch (error) {
+			console.error(error);
+			this.eventQueue.error.run(error, customArgu);
+		}
 
-			//移交至下一爬虫
-			if (this.nextNeko) {
-				this.nextNeko.setRequestTargets(this.nextArgu);
-				await this.nextNeko.start(customArgu);
-			}
+		//移交至下一爬虫
+		if (this.nextNeko) {
+			await this.nextNeko.start(this.nextArgu, customArgu);
 		}
 	}
 }
