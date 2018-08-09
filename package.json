@@ -1,6 +1,6 @@
 {
   "name": "crawl-neko",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "A lightweight crawler framework with your custom focus",
   "main": "src/index.js",
   "scripts": {
