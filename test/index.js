@@ -2,60 +2,66 @@
  * @Author: Jindai Kirin 
  * @Date: 2018-08-08 08:58:29 
  * @Last Modified by: Jindai Kirin
- * @Last Modified time: 2018-08-09 09:15:26
+ * @Last Modified time: 2018-08-10 17:04:57
  */
 
 const CrawlNeko = require('..');
+const Path = require('path');
 
 let catalog = new CrawlNeko();
 let detail = new CrawlNeko();
 
 
-// Get the detail link of nhentai comics (5 only for test)
-catalog.on('data', ($, customArgu) => {
-	customArgu.tip2 = "This argument will be passed to every event.";
-
+// Get the detail link of nhentai comics (3 only for test)
+catalog.on('data', $ => {
 	let hrefs = [];
 	let $cover = $('.cover');
 	for (let i = 0; i < $cover.length; i++) {
 		hrefs.push('https://nhentai.net' + $($cover[i]).attr('href'));
 	}
-	return hrefs.slice(0, 5);
+	return hrefs.slice(0, 3);
 });
-// And out put them
-catalog.on('final', (href, customArgu) => {
-	customArgu.tip3 = "EVERY!";
 
+// And out put them
+catalog.on('final', href => {
 	console.log(href);
 });
 
 
 // Get the detail infomation from a link
-detail.on('data', ($, customArgu) => {
-	customArgu.tip4 = "Even the next crawler.";
-
+detail.on('data', ($, url) => {
 	return {
+		gid: (/[0-9]+/.exec(url))[0],
 		tittle1: $('#info h1').html(),
 		tittle2: $('#info h2').html(),
 		pages: $('#thumbnail-container .thumb-container').length,
-		imgID: parseInt((/\/([0-9]+)\//g.exec($($('#thumbnail-container .thumb-container img')[0]).attr('data-src')))[0].replace(/\//g, ''))
+		iid: parseInt((/\/([0-9]+)\//g.exec($($('#thumbnail-container .thumb-container img')[0]).attr('data-src')))[0].replace(/\//g, ''))
 	};
 });
-// And out put them
-detail.on('final', (result, customArgu) => {
-	customArgu.tip5 = "Done!";
 
-	console.log("\n" + result.tittle1 + "\n" + result.tittle2 + "\nPages: " + result.pages + "\nImgID: " + result.imgID);
+// And output and download them (CAUTION: Adult content)
+detail.on('final', result => {
+	console.log("\ngid: " + result.gid + "\n" + result.tittle1 + "\n" + result.tittle2 + "\nPages: " + result.pages + "\niid: " + result.iid);
+
+	let downloads = [];
+
+	for (let i = 1; i <= result.pages; i++) {
+		downloads.push({
+			type: 'download',
+			dir: 'dltest' + Path.sep + result.gid,
+			file: i + ".jpg",
+			url: 'https://i.nhentai.net/galleries/' + result.iid + '/' + i + '.jpg',
+			callback: (opt) => {
+				console.log("Download " + opt.url + " success!");
+			}
+		});
+	}
+
+	return downloads;
 });
 
 
 // Set 'detail' as the next crawl of 'catalog'
 catalog.next(detail);
 
-let myArgu = {
-	tip1: "This is a custom argument. If you do not fill in the argument, we will give an empty object '{}'."
-};
-
-catalog.start('https://nhentai.net/language/chinese/', myArgu).then(() => {
-	console.log("\n" + JSON.stringify(myArgu));
-});
+catalog.start('https://nhentai.net/language/chinese/');

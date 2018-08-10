@@ -1,7 +1,7 @@
 {
   "name": "crawl-neko",
-  "version": "1.1.0",
-  "description": "A lightweight crawler framework with your custom focus",
+  "version": "1.2.0",
+  "description": "A lightweight crawler framework with your custom focus. 一个轻量级的可自定义重点的爬虫框架",
   "main": "src/index.js",
   "scripts": {
     "test": "node test/index.js"

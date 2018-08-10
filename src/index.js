@@ -2,12 +2,13 @@
  * @Author: Jindai Kirin 
  * @Date: 2018-08-06 15:00:19 
  * @Last Modified by: Jindai Kirin
- * @Last Modified time: 2018-08-09 09:12:39
+ * @Last Modified time: 2018-08-10 16:54:25
  */
 
 const Cheerio = require('cheerio');
 const Axios = require('axios');
 const FuncQueue = require('./funcQueue');
+const Tools = require('./tools');
 
 /**
  * Crawl neko~
@@ -93,14 +94,14 @@ class CrawlNeko {
 	 * Start crawling
 	 *
 	 * @param {*} requestTargets Request targets
-	 * @param {*} [customArgu={}] Custom argument
 	 * @memberof CrawlNeko
 	 */
-	async start(requestTargets, customArgu = {}) {
+	async start(requestTargets) {
 		if (!requestTargets) throw new Error("No targets can be handle");
 
 		try {
 			for (let argu of (Array.isArray(requestTargets) ? requestTargets : [requestTargets])) {
+				let url = argu;
 				//request事件，如没指定则默认使用axios
 				if (this.eventQueue.request.isEmpty()) {
 					await Axios.get(argu).then(response => {
@@ -109,13 +110,13 @@ class CrawlNeko {
 						argu = (typeof (data) == "string") ? Cheerio.load(data, this.cheerioParameter) : data;
 					});
 				} else {
-					await this.eventQueue.request.run(argu, customArgu).then(ret => {
+					await this.eventQueue.request.run(argu).then(ret => {
 						argu = ret;
 					});
 				}
 
 				//data事件
-				await this.eventQueue.data.run(argu, customArgu).then(ret => {
+				await this.eventQueue.data.run(argu, url).then(ret => {
 					argu = ret;
 					//下一步处理的参数
 					this.nextArgu = ret;
@@ -124,22 +125,67 @@ class CrawlNeko {
 				//final事件
 				if (!Array.isArray(argu)) argu = [argu];
 				for (let a of argu) {
-					await this.eventQueue.final.run(a, customArgu).catch(e => {
-						console.error(e);
-						this.eventQueue.error.run(e, customArgu);
+					await this.eventQueue.final.run(a).then(async ret => {
+						//附加功能
+						if (ret) {
+							for (let toolArgu of (Array.isArray(ret) ? ret : [ret])) {
+								await runTools(toolArgu);
+							}
+						}
 					});
 				}
 			}
 		} catch (error) {
 			console.error(error);
-			this.eventQueue.error.run(error, customArgu);
+			this.eventQueue.error.run(error);
 		}
 
 		//移交至下一爬虫
 		if (this.nextNeko) {
-			await this.nextNeko.start(this.nextArgu, customArgu);
+			await this.nextNeko.start(this.nextArgu);
+		}
+	}
+
+	/**
+	 * Get toolset
+	 *
+	 * @static
+	 * @returns Tools
+	 * @memberof CrawlNeko
+	 */
+	static getTools() {
+		return Tools;
+	}
+}
+
+
+/**
+ * Perform additional functions
+ *
+ * @param {*} argu Argument
+ */
+async function runTools(argu) {
+	function callback() {
+		if (argu.callback && typeof (argu.callback) == "function")
+			argu.callback(argu);
+	}
+
+	//参数检测
+	if (argu && argu.type) {
+		//下载
+		if (argu.type == 'download') {
+			//参数检测
+			if (argu.dir && argu.file && argu.url) {
+				await Tools.download(argu.dir, argu.file, argu.url, argu.option || {});
+				callback();
+			} else {
+				throw new Error("Missing parameter");
+			}
+		} else {
+			throw new Error("Type not defind");
 		}
 	}
 }
+
 
 module.exports = CrawlNeko;

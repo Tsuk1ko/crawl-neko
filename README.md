@@ -11,6 +11,11 @@
    例如一个小说站，你需要依次爬取 分类列表->小说列表->章节列表->正文
 
 
+## 安装
+```bash
+npm i crawl-neko
+```
+
 ## 工作流程
 ### 事件及函数队列
 ![事件及函数队列](https://i.loli.net/2018/08/08/5b6a8b4d87a17.png)
@@ -24,29 +29,47 @@
 	- 如果向该事件添加函数，即相当于自定义你的请求方法，则必须返回自行进行网络请求后得到的内容
 - data
 	- 对`request`事件执行完毕后得到的结果进行处理，提取重点内容
-	- 函数得到的第一个参数为`request`事件的函数队列的最终返回值
+	- 函数得到的第一个参数为`request`事件的函数队列的最终返回值，第二个参数为`request`的目标URL
 	- 如果你使用`next()`为当前爬虫指定了后继爬虫，则该`data`函数队列的最终返回值会作为后继爬虫的爬取目标
 - final
 	- 对`data`事件执行完毕得到的结果进行收尾处理，你可以在这里自由发挥
 	- 如果`data`事件的函数队列最终返回了一个数组，则每次依次取其中一个元素作为`final`事件的参数来执行（与`request`那块同理）
-	- 该函数队列不需要最终返回一个值
+	- 该函数队列最终可以不返回值
+	- 该函数队列可以最终返回一个具有固定结构的对象（或对象的数组）来作为该框架封装了的部分爬虫工具的参数（详见[工具](#工具)）
 - error
 	- 特殊的事件，只有在出现异常错误时才会触发
 	- 函数的第一个参数为被抛出的`Error`对象
 	- 该函数队列不需要最终返回一个值
 
 
-### 参数的传递
-![参数的传递](https://i.loli.net/2018/08/08/5b6a95b87a6ab.png)
+### 工具
+在`final`事件函数队列中，如最终返回具有固定结构的对象则可以使用以下功能
 
-首参数的传递在上面实际上已经讲过，此处仅仅是放个图示意一下
-
-对于自定义参数，实质上就是创造一个在函数内部可以使用的“全局”变量空间
-
-## 安装
-```bash
-npm i crawl-neko
+#### download
+使用`axios`下载文件，例如以下返回对象示例会指使工具下载该 URL 的图片文件至项目目录下的`dltest/test`
+```javascript
+{
+	type: "download",
+	dir: "dltest",
+	file: "test.png",
+	url: "https://i.pximg.net/img-original/img/2015/05/25/12/40/22/50554350_p0.png",
+	option: {
+		headers: {
+			referer: "https://www.pixiv.net/"
+		}
+	},
+	callback: (opt) => {
+		console.log("Download " + opt.url + " to " + opt.dir + " success!");
+	}
+}
 ```
+- `type`: 固定为`download`
+- `dir`: 欲下载到的目录路径，可以为绝对或相对
+- `file`: 欲下载文件的保存名
+- `url`: 下载网址
+- `option`: axios 参数，请参照[此处](https://github.com/axios/axios#request-config)
+- `callback`: 下载完成后的回调函数，第一个参数即为该对象
+
 
 ## 使用
 ### on(eve, func)
@@ -56,7 +79,7 @@ npm i crawl-neko
 - final
 - error
 
-函数`func`的第一个参数用于接收函数队列中上一函数的返回值；第二个参数为自定义参数，通常为一个对象，你可以向里面存放任意你想放的东西，并且这个自定义参数会被全程传递（相当于在函数内可使用的全局变量）
+函数`func`可以是普通函数或是一个`Promise`，参数在[事件及函数队列](#事件及函数队列)中有说明
 
 ### setCheerioParameter(parameter)
 当未设定`request`事件的响应函数时，默认会使用`axios`进行请求，并且如果取得的内容为 HTML，则会自动使用`cheerio`进行解析
@@ -75,74 +98,84 @@ this.cheerioParameter = {
 
 该继承包括`request`事件函数队列以及`cheerio`参数
 
-### async start(requestTargets, customArgu = {})
+### async start(requestTargets)
 开始爬行
 
 `requestTargets`为爬取目标(URL)，可以是`string`或者`Array<string>`  
 当然，如果你自定义了`request`事件的函数，则不必再限定为`string`，但若要传递多个目标仍需要使用`Array`
 
-第二个参数为自定义参数
+### static isCrawlNeko(obj)
+判断对象是不是 CrawlNeko 的 friends
+
+### static getTools()
+取得工具集，以便于进行定制度更高的开发，其可用函数详见`src/tools.js`
 
 ## 一个例子
-在`test/index.js`，你可以直接执行`npm test`来运行查看效果
+在`test/index.js`，你可以克隆源码后执行`npm test`来运行查看效果
 
 ```javascript
 const CrawlNeko = require('crawl-neko');
+const Path = require('path');
 
 let catalog = new CrawlNeko();
 let detail = new CrawlNeko();
 
 
-// Get the detail link of nhentai comics (5 only for test)
-catalog.on('data', ($, customArgu) => {
-	customArgu.tip2 = "This argument will be passed to every event.";
-
+// Get the detail link of nhentai comics (3 only for test)
+catalog.on('data', $ => {
 	let hrefs = [];
 	let $cover = $('.cover');
 	for (let i = 0; i < $cover.length; i++) {
 		hrefs.push('https://nhentai.net' + $($cover[i]).attr('href'));
 	}
-	return hrefs.slice(0, 5);
+	return hrefs.slice(0, 3);
 });
-// And out put them
-catalog.on('final', (href, customArgu) => {
-	customArgu.tip3 = "EVERY!";
 
+// And out put them
+catalog.on('final', href => {
 	console.log(href);
 });
 
 
 // Get the detail infomation from a link
-detail.on('data', ($, customArgu) => {
-	customArgu.tip4 = "Even the next crawler.";
-
+detail.on('data', ($, url) => {
 	return {
+		gid: (/[0-9]+/.exec(url))[0],
 		tittle1: $('#info h1').html(),
 		tittle2: $('#info h2').html(),
 		pages: $('#thumbnail-container .thumb-container').length,
-		imgID: parseInt((/\/([0-9]+)\//g.exec($($('#thumbnail-container .thumb-container img')[0]).attr('data-src')))[0].replace(/\//g, ''))
+		iid: parseInt((/\/([0-9]+)\//g.exec($($('#thumbnail-container .thumb-container img')[0]).attr('data-src')))[0].replace(/\//g, ''))
 	};
 });
-// And out put them
-detail.on('final', (result, customArgu) => {
-	customArgu.tip5 = "Done!";
 
-	console.log("\n" + result.tittle1 + "\n" + result.tittle2 + "\nPages: " + result.pages + "\nImgID: " + result.imgID);
+// And output and download them (CAUTION: Adult content)
+detail.on('final', result => {
+	console.log("\ngid: " + result.gid + "\n" + result.tittle1 + "\n" + result.tittle2 + "\nPages: " + result.pages + "\niid: " + result.iid);
+
+	let downloads = [];
+
+	for (let i = 1; i <= result.pages; i++) {
+		downloads.push({
+			type: 'download',
+			dir: 'dltest' + Path.sep + result.gid,
+			file: i + ".jpg",
+			url: 'https://i.nhentai.net/galleries/' + result.iid + '/' + i + '.jpg',
+			callback: (opt) => {
+				console.log("Download " + opt.url + " success!");
+			}
+		});
+	}
+
+	return downloads;
 });
 
 
 // Set 'detail' as the next crawl of 'catalog'
 catalog.next(detail);
 
-let myArgu = {
-	tip1: "This is a custom argument. If you do not fill in the argument, we will give an empty object '{}'."
-};
-
-catalog.start('https://nhentai.net/language/chinese/', myArgu).then(() => {
-	console.log("\n" + JSON.stringify(myArgu));
-});
+catalog.start('https://nhentai.net/language/chinese/');
 ```
 
 ## TODO
  - [ ] 增加对数据库操作的封装
- - [ ] 增加对文件下载操作的封装
+ - [-] 增加对文件下载操作的封装
